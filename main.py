@@ -6,6 +6,7 @@ from fastapi.security import OAuth2PasswordRequestForm
 from backend_auth import get_password_hash, authenticate_user, create_access_token, get_current_user
 from datetime import timedelta
 from fastapi.middleware.cors import CORSMiddleware
+import stripe
 
 # Create tables
 Base.metadata.create_all(bind=engine)
@@ -92,7 +93,22 @@ def create_order(user_id: int = None, food_item_id: int = None, quantity: int = 
 
 @app.get("/orders/")
 def list_orders(db: Session = Depends(get_db)):
-    return db.query(Order).all() 
+    return db.query(Order).all()
+
+# Stripe configuration (replace with your test secret key)
+stripe.api_key = "sk_test_..."  # TODO: Replace with your Stripe test secret key
+
+@app.post("/create-payment-intent/")
+def create_payment_intent(amount: int, currency: str = "usd"):
+    try:
+        intent = stripe.PaymentIntent.create(
+            amount=amount,  # in cents
+            currency=currency,
+            payment_method_types=["card"],
+        )
+        return {"clientSecret": intent["client_secret"]}
+    except Exception as e:
+        raise HTTPException(status_code=400, detail=str(e))
 
 app.add_middleware(
       CORSMiddleware,
