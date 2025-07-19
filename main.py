@@ -6,6 +6,7 @@ from fastapi.security import OAuth2PasswordRequestForm
 from backend_auth import get_password_hash, authenticate_user, create_access_token, get_current_user
 from datetime import timedelta
 from fastapi.middleware.cors import CORSMiddleware
+from pydantic import BaseModel
 import stripe
 
 # Create tables
@@ -18,6 +19,13 @@ def get_db():
     finally:
         db.close()
 
+# Pydantic models for request/response
+class UserCreate(BaseModel):
+    name: str
+    email: str
+    password: str
+    address: str
+
 app = FastAPI()
 
 @app.get("/")
@@ -25,11 +33,11 @@ def read_root():
     return {"message": "Food Delivery Backend is running!"}
 
 @app.post("/register/")
-def register_user(name: str, email: str, password: str, address: str, db: Session = Depends(get_db)):
-    if db.query(User).filter(User.email == email).first():
+def register_user(user_data: UserCreate, db: Session = Depends(get_db)):
+    if db.query(User).filter(User.email == user_data.email).first():
         raise HTTPException(status_code=400, detail="Email already registered")
-    hashed_password = get_password_hash(password)
-    user = User(name=name, email=email, password=hashed_password, address=address)
+    hashed_password = get_password_hash(user_data.password)
+    user = User(name=user_data.name, email=user_data.email, password=hashed_password, address=user_data.address)
     db.add(user)
     db.commit()
     db.refresh(user)
